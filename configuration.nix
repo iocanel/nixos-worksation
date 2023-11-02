@@ -12,7 +12,7 @@
 
   # Bootloader.
   boot.loader.grub.enable = true;
-  boot.loader.grub.device = "/dev/sda";
+  boot.loader.grub.device = "/dev/vda";
   boot.loader.grub.useOSProber = true;
 
   networking.hostName = "nixos"; # Define your hostname.
@@ -24,6 +24,9 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
+
+  # Enable networkd
+  networking.useNetworkd = true;
 
   # Set your time zone.
   time.timeZone = "Europe/Athens";
@@ -185,4 +188,27 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "23.05"; # Did you read the comment?
 
+  systemd = {
+    network = {
+      enable = true;
+      netdevs = {
+        br1 = {
+	  netdevConfig = {
+            Kind = "bridge";
+	    Name = "br1";
+	  };
+        };
+      };
+      networks = {
+        br1 = {
+          matchConfig.Name = "br1";
+          DHCP = "ipv4";
+        };
+	br1-bind = {
+          matchConfig.Name = "en*";
+	  networkConfig.Bridge="br1";
+	};
+      };
+    };
+  };
 }
