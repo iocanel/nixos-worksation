@@ -1,22 +1,45 @@
-# Edit this configuration file to define what should be installed on
-# your system.  Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
+#
+# My NixOS configuration
+#
+
+#
+# Requirements:
+#
+# 1. nix-ld:
+#
+#    $ sudo nix-channel --add https://github.com/Mic92/nix-ld/archive/main.tar.gz nix-ld
+#    $ sudo nix-channel --update
+#
+# 2. home manager
+#    $ nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+#    $ nix-channel --update
+# 
+
 
 { config, pkgs, fetchFromGithub, ... }:
 
 {
   imports =
-    [ # Include the results of the hardware scan.
+    [
       ./hardware-configuration.nix
+      <nix-ld/modules/nix-ld.nix>
+      <home-manager/nixos>
     ];
+
+  # NIX_LD
+  programs.nix-ld.dev.enable = true;
+
 
   # Bootloader.
   boot.loader.grub.enable = true;
-  boot.loader.grub.device = "/dev/vda";
+  boot.loader.grub.devices = [ "nodev" ];
+  boot.loader.grub.efiInstallAsRemovable = true;
+  boot.loader.grub.efiSupport = true;
   boot.loader.grub.useOSProber = true;
+  #boot.loader.systemd-boot.enable = false;
 
   networking.hostName = "nixos"; # Define your hostname.
-  # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+  #networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
@@ -43,7 +66,7 @@
     LC_NUMERIC = "el_GR.UTF-8";
     LC_PAPER = "el_GR.UTF-8";
     LC_TELEPHONE = "el_GR.UTF-8";
-    LC_TIME = "el_GR.UTF-8";
+    LC_TIME = "en_US.UTF-8";
   };
 
   # Configure keymap in X11
@@ -56,6 +79,9 @@
       defaultSession = "none+i3";
       sddm = {
         enable = true;
+      };
+      gdm = {
+      	enable = false;
       };
     };
     windowManager = {
@@ -74,53 +100,96 @@
     xkbOptions = "grp:alt_shift_toggle";
   };
 
+  # Clipmenu
+  services.clipmenu.enable = true;
+
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users = {
-    defaultUserShell = pkgs.bash;
+    defaultUserShell = pkgs.zsh;
     users.iocanel = {
       isNormalUser = true;
       description = "Ioannis Canellos";
-      extraGroups = [ "root" "wheel" "docker" "networkmanager" ];
-      packages = with pkgs; [];
+      extraGroups = [ "root" "wheel" "audio" "docker" "networkmanager" ];
+      packages = with pkgs; [
+        zulip
+	slack
+	discord
+	maven
+	gradle
+	temurin-bin-17
+	nodejs
+        python312
+	rustup
+	go
+      ];
     };
   };
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
+  # Experimental features
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # Overlays
+   nixpkgs.overlays = [
+    (import /etc/nixos/overlays/custom-java-overlay.nix)
+  ];
+
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
      stdenv # nixos build essentials
+     glibc
      bash
      zsh
+     fish
+     direnv
      pass
-     bash
+     pinentry-curses
      neovim
      emacs
      htop
-     wget
      zoxide
      fzf
      ripgrep
      silver-searcher
-     curl
      stow
+     ollama
+     clipmenu
+     clipnotify
+     xclip
+     xsel
+     #
+     # Containers
+     #
      docker
      docker-machine-kvm2
      docker-compose
+     #
+     # Kubernetes
+     #
      kubectl
      k9s
      kubernetes-helm
      kind
      minikube
+     #
+     # Desktop environments
+     #
      sddm
      i3
+     i3blocks
      alacritty
      rxvt-unicode
      xterm
-     firefox
      arandr
+     #
+     # Audio, Video and Image
+     #
+     pulseaudio
+     pavucontrol
+     pa_applet
      nitrogen
      ffmpeg
      mpv
@@ -128,15 +197,28 @@
      opencv
      audacity
      obs-studio
+     #
+     # Network and Internet
+     #
+     wget
+     curl
+     firefox
+     chromium
      wireshark
      networkmanagerapplet
+     #
+     # Development
+     #
      git
      gcc
      gnumake
-     python312
-     rustup
      gnuplot
+     #
+     # Fonts
+     #
+     font-awesome
   ];
+
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -144,14 +226,30 @@
   programs.gnupg.agent = {
     enable = true;
     enableSSHSupport = true;
+    pinentryFlavor = "curses";
   };
 
-  programs.zsh.enable = true;
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    syntaxHighlighting.enable = true;
+    shellAliases = {
+	vi = "nvim";
+    	update = "sudo nixos-rebuild switch";
+    };
+  };
 
   # List services that you want to enable:
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
+
+  #
+  # Audio
+  #
+  hardware.pulseaudio.enable = true;
+  hardware.pulseaudio.support32Bit = true;
+  hardware.pulseaudio.package = pkgs.pulseaudioFull;
 
   #
   # Printing
@@ -186,9 +284,21 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "23.05"; # Did you read the comment?
+  system.stateVersion = "23.11";
 
   systemd = {
+    services = {
+      fc-cache-update = {
+        description = "Update font cache";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.fontconfig}/bin/fc-cache -fv'";
+          RemainAfterExit = true;
+        };
+      };
+    };
     network = {
       enable = true;
       netdevs = {
@@ -211,4 +321,19 @@
       };
     };
   };
+  
+  #
+  # Package activation
+  #
+
+  # Create a symlink for /bin/bash
+  environment.etc."bash".source = "${pkgs.bash}/bin/bash";
+  # Alternatively, use system activation script to create the symlink
+  system.activationScripts.bash = {
+    text = ''
+      mkdir -p /bin
+      ln -sf ${pkgs.bash}/bin/bash /bin/bash
+    '';
+  };
 }
+
