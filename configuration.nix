@@ -5,38 +5,32 @@
 #
 # Requirements:
 #
-# 1. nix-ld:
-#
-#    $ sudo nix-channel --add https://github.com/Mic92/nix-ld/archive/main.tar.gz nix-ld
-#    $ sudo nix-channel --update
-#
-# 2. home manager
-#    $ nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+# 1. home manager
+#    $ nix-channel --add https://github.com/nix-community/home-manager/archive/release-24-05.tar.gz home-manager
 #    $ nix-channel --update
 # 
 
-
 { config, pkgs, fetchFromGithub, ... }:
-
+  let
+    #
+    # Define the paths to your custom packages
+    #
+    mvnd = pkgs.callPackage /etc/nixos/packages/mvnd/default.nix { };
+  in
 {
   imports =
     [
       ./hardware-configuration.nix
-      <nix-ld/modules/nix-ld.nix>
       <home-manager/nixos>
     ];
 
-  # NIX_LD
-  programs.nix-ld.dev.enable = true;
-
-
   # Bootloader.
-  boot.loader.grub.enable = true;
+  boot.loader.grub.enable = false;
   boot.loader.grub.devices = [ "nodev" ];
   boot.loader.grub.efiInstallAsRemovable = true;
   boot.loader.grub.efiSupport = true;
   boot.loader.grub.useOSProber = true;
-  #boot.loader.systemd-boot.enable = false;
+  boot.loader.systemd-boot.enable = true;
 
   networking.hostName = "nixos"; # Define your hostname.
   #networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -69,60 +63,69 @@
     LC_TIME = "en_US.UTF-8";
   };
 
-  # Configure keymap in X11
-  services.xserver = {
-    enable=true;
-    desktopManager = {
-      xterm.enable = true;
+  services = {
+    # Configure keymap in X11
+    xserver = {
+      enable = true;
+      desktopManager = {
+        xterm.enable = true;
+      };
+      displayManager = {
+      	gdm = {
+	    enable = false;
+	  };
+      };
+      windowManager = {
+        i3 = {
+          enable = true;
+          extraPackages = with pkgs; [
+            dmenu
+	    rofi
+	    i3lock
+	    i3blocks
+          ];
+        };
+      };
+      xkb = {
+        variant = "";
+        options = "grp:alt_shift_toggle";
+        layout = "us,gr";
+      };
     };
+
     displayManager = {
       defaultSession = "none+i3";
       sddm = {
         enable = true;
-      };
-      gdm = {
-      	enable = false;
+        theme = "chili";
       };
     };
-    windowManager = {
-      i3 = {
-        enable = true;
-        extraPackages = with pkgs; [
-          dmenu
-	  rofi
-	  i3lock
-	  i3blocks
-        ];
-      };
+
+    clipmenu.enable = true;
+
+    openssh.enable = true;
+
+    printing.enable = true;
+
+    avahi = {
+      enable = true;
+      nssmdns4 = true;
+      openFirewall = true;
     };
-    layout = "us,gr";
-    xkbVariant = "";
-    xkbOptions = "grp:alt_shift_toggle";
   };
-
-  # Clipmenu
-  services.clipmenu.enable = true;
-
+    
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users = {
-    defaultUserShell = pkgs.zsh;
+    defaultUserShell = pkgs.fish;
     users.iocanel = {
       isNormalUser = true;
       description = "Ioannis Canellos";
-      extraGroups = [ "root" "wheel" "audio" "docker" "networkmanager" ];
-      packages = with pkgs; [
-        zulip
-	slack
-	discord
-	maven
-	gradle
-	temurin-bin-17
-	nodejs
-        python312
-	rustup
-	go
-      ];
+      extraGroups = [ "root" "wheel" "audio" "video" "docker" "networkmanager" ];
     };
+  };
+
+  home-manager = {
+    users.iocanel = /home/iocanel/.config/home-manager/home.nix;
   };
 
   # Allow unfree packages
@@ -140,32 +143,87 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
      stdenv # nixos build essentials
-     glibc
+     home-manager
      bash
      zsh
      fish
      direnv
      pass
      pinentry-curses
-     neovim
-     emacs
-     htop
-     zoxide
-     fzf
-     ripgrep
-     silver-searcher
+     pinentry-qt
      stow
+     #
+     # AI
+     #
      ollama
+     #
+     # Clipboard Management
+     #
      clipmenu
      clipnotify
      xclip
-     xsel
      #
      # Containers
      #
      docker
      docker-machine-kvm2
      docker-compose
+     #
+     # Drivers
+     #
+     brlaser
+
+     #
+     # Development
+     #
+     git
+     gnumake
+     # C
+     gcc
+     glibc
+     cmake
+     libtool
+     # Java
+     maven
+     gradle
+     temurin-bin-17
+     jbang
+     quarkus
+     # Javascript
+     nodejs
+     nodejs_18
+     yarn-berry
+     # Go
+     go
+     # Python
+     python312
+     poetry
+     # Rust
+     rustup
+     cargo
+     # SQL
+     sqlite
+     # Utils
+     gnuplot
+     #
+     # Editors
+     #
+     neovim
+     emacs
+     #
+     # Fonts
+     #
+     font-awesome
+     nerdfonts
+     hack-font
+     fira-code
+     powerline-fonts
+     material-icons
+     material-design-icons
+     source-code-pro
+     inconsolata
+     dejavu_fonts
+     fg-virgil
      #
      # Kubernetes
      #
@@ -177,93 +235,126 @@
      #
      # Desktop environments
      #
-     sddm
+     arandr
      i3
      i3blocks
-     alacritty
-     rxvt-unicode
-     xterm
-     arandr
+     sddm
+     sddm-chili-theme
      #
-     # Audio, Video and Image
+     # Multimedia
      #
      pulseaudio
      pavucontrol
      pa_applet
      nitrogen
      ffmpeg
+     v4l-utils
+     guvcview
      mpv
      gimp
      opencv
      audacity
      obs-studio
+     kdenlive
+     vocal
+     newsflash
      #
      # Network and Internet
      #
+     zulip
+     slack
+     discord
+     dropbox
+     remmina
      wget
      curl
      firefox
      chromium
      wireshark
+     openvpn
+     networkmanager-openvpn
      networkmanagerapplet
+     openssl
+     bluez
      #
-     # Development
+     # Office
      #
-     git
-     gcc
-     gnumake
-     gnuplot
+     libreoffice
+     texliveFull
+     obsidian
      #
-     # Fonts
+     # Terminal
      #
-     font-awesome
+     alacritty
+     rxvt-unicode
+     xterm
+     # Terminal UI
+     fzf
+     ripgrep
+     bat
+     eza
+     dust
+     htop
+     # Tools
+     unzip
+     unrar
+     rsync
+     # System tools
+     pciutils
+     usbutils
   ];
+  programs = {
+    nix-ld = {
+      enable = true;
+    };
 
+    gnupg = {
+      agent = {
+        enable = true;
+        enableSSHSupport = true;
+      };
+    };
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  programs.gnupg.agent = {
-    enable = true;
-    enableSSHSupport = true;
-    pinentryFlavor = "curses";
+    zsh = {
+      enable = true;
+      enableCompletion = true;
+      syntaxHighlighting.enable = true;
+      shellAliases = {
+        vi = "nvim";
+        update = "sudo nixos-rebuild switch";
+      };
+    };
+
+    fish = {
+      enable = true;
+    };
+
+    java = {
+      enable = true;
+    };
+    
   };
 
-  programs.zsh = {
-    enable = true;
-    enableCompletion = true;
-    syntaxHighlighting.enable = true;
-    shellAliases = {
-	vi = "nvim";
-    	update = "sudo nixos-rebuild switch";
+  #
+  # Hardware
+  #
+  hardware = {
+    pulseaudio = {
+      enable = true;
+      support32Bit = true;
+      package = pkgs.pulseaudioFull;
+      extraConfig = ''
+        load-module module-switch-on-port-available
+        load-module module-udev-detect
+        load-module module-detect
+        load-module module-alsa-source device=hw:0,0
+      '';
     };
   };
-
-  # List services that you want to enable:
-
-  # Enable the OpenSSH daemon.
-  services.openssh.enable = true;
-
-  #
-  # Audio
-  #
-  hardware.pulseaudio.enable = true;
-  hardware.pulseaudio.support32Bit = true;
-  hardware.pulseaudio.package = pkgs.pulseaudioFull;
 
   #
   # Printing
   #
-
-  # Enable printing via CUPS
-  services.printing.enable = true;
-  # Run the avahi daemon
-  services.avahi.enable = true;
-  # Enable mDNS NSS plugin
-  services.avahi.nssmdns = true;
-  # Open the firewall for UDP port 5354
-  services.avahi.openFirewall = true;
-
 
   #
   # Virtualisation
@@ -273,10 +364,12 @@
  
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  networking = {
+    firewall = {
+      enable = false;
+      allowedTCPPorts = [ 22 80 443 8080 8096 8920 ];
+    };
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
@@ -284,7 +377,7 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "23.11";
+  system.stateVersion = "24.05";
 
   systemd = {
     services = {
@@ -298,30 +391,66 @@
           RemainAfterExit = true;
         };
       };
-    };
-    network = {
-      enable = true;
-      netdevs = {
-        br1 = {
-	  netdevConfig = {
-            Kind = "bridge";
-	    Name = "br1";
-	  };
+      emby-server = {
+        description = "Emby Server";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" "docker.service" ];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${pkgs.docker}/bin/docker run -d --name emby-server -e UID=1000 -e GUID=100 -e GIDLIST=100 -p 8096:8096 -p 8920:8920 -v /home/iocanel/.config/emby/:/config -v /mnt/media:/mnt/media --cpus=2 --memory=4g --restart on-failure emby/embyserver:4.9.0.26";
+          ExecStop = "${pkgs.docker}/bin/docker rm -f emby-server";
+          RemainAfterExit = true;
         };
       };
+    };
+
+    network = {
+      enable = true;
+      # netdevs = {
+      #   br1 = {
+      #      netdevConfig = {
+      #       Kind = "bridge";
+      #      Name = "br1";
+      #    };
+      #   };
+      # };
       networks = {
-        br1 = {
-          matchConfig.Name = "br1";
+        eth1 = {
+          matchConfig.Name = "en*";
           DHCP = "ipv4";
         };
-	br1-bind = {
-          matchConfig.Name = "en*";
-	  networkConfig.Bridge="br1";
-	};
+
+       # br1 = {
+       #   matchConfig.Name = "br1";
+       #   DHCP = "ipv4";
+       # };
+       # br1-bind = {
+       #   matchConfig.Name = "en*";
+       #   networkConfig.Bridge="br1";
+       # };
       };
     };
   };
+
+  #
+  # udev
+  #
+  services.udev.extraRules = ''
+    # Rule to deauthorize USB device
+    ACTION=="add", SUBSYSTEM=="usb", RUN+="${pkgs.bash}/bin/bash -c echo 0 > /sys/$devpath/authorized"
+
+    #
+    # Work in progress
+    #
+
+    # Rule to configure monitors on hotplug event
+    ACTION=="change", SUBSYSTEM=="drm", ENV{HOTPLUG}=="1", RUN+="${pkgs.bash}/bin/bash -c xrandr --query | grep connect | awk '{print $1}' | while read monitor; do xrandr --output $monitor --auto; done"
+
+    # Rule to ignore /dev/video5 as it is not working properly
+    KERNEL=="video5", SUBSYSTEM=="video4linux", OPTIONS+="ignore_device"
+  '';
   
+
   #
   # Package activation
   #

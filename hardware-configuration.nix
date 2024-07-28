@@ -8,7 +8,7 @@
     [ (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
-  boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "thunderbolt" "nvme" "usb_storage" "usbhid" "sd_mod" "sr_mod" "rtsx_pci_sdmmc" ];
+  boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "thunderbolt" "nvme" "usb_storage" "usbhid" "sd_mod" "sr_mod" ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
@@ -24,6 +24,29 @@
       options = [ "fmask=0022" "dmask=0022" ];
     };
 
+  fileSystems."/mnt/downloads" = 
+  {
+    device = "192.168.1.250:/volume2/downloads";
+    fsType = "nfs";
+    options = [ "nofail" "bg" ];
+  };
+
+  fileSystems."/mnt/bjj" = 
+  {
+    device = "192.168.1.250:/volume2/bjj";
+    fsType = "nfs";
+    options = [ "nofail" "bg" ];
+  };
+
+  fileSystems."/mnt/media" = 
+  {
+    device = "192.168.1.250:/volume2/media";
+    fsType = "nfs";
+    options = [ "nofail" "bg" ];
+  };
+
+
+
   swapDevices = [ ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
@@ -35,5 +58,13 @@
   # networking.interfaces.wlp9s0.useDHCP = lib.mkDefault true;
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+  hardware = {
+    cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    bluetooth = {
+      enable = true;
+      powerOnBoot = true;
+    };
+    
+  };
+
 }
